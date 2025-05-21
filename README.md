@@ -1,1 +1,243 @@
 # THE-SUPPLIERS
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de Almacenes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      
+    }
+    nav {
+      background-color: #bb0000;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin-right: 15px;
+      cursor: pointer;
+    }
+    nav a.active {
+      font-weight: bold;
+      text-decoration: underline;
+    }
+    .hidden {
+      display: none;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    input, button {
+      margin: 5px 0;
+      padding: 8px;
+    }
+    .btn-small {
+      padding: 4px 8px;
+      margin-left: 5px;
+      font-size: 0.8em;
+    }
+  </style>
+</head>
+<body>
+  
+  <nav>
+    <h1>THE SUPPLIERS</h1>
+    <a id="menu-almacenes" class="active" onclick="mostrarSeccion('almacenes')">Almacenes</a>
+    <a id="menu-balance" onclick="mostrarSeccion('balance')">Balance</a>
+  </nav>
+
+  <!-- Sección de Almacenes -->
+  <div id="seccion-almacenes">
+    <h1>Agregar Producto al Almacén</h1>
+    <label for="almacen">Nombre del Almacén:</label>
+    <input type="text" id="almacen"><br>
+    
+    <label for="producto">Producto:</label>
+    <input type="text" id="producto"><br>
+    
+    <label for="cantidad">Cantidad:</label>
+    <input type="number" id="cantidad"><br>
+    
+    <button onclick="agregarProducto()">Agregar</button>
+
+    <h2>Inventario</h2>
+    <div id="tablaInventario"></div>
+  </div>
+
+  <!-- Sección de Balance -->
+  <div id="seccion-balance" class="hidden">
+    <h1>Balance General</h1>
+    <div id="tablaBalance"></div>
+  </div>
+
+  <script>
+    let inventario = {};
+    let precios = {};
+
+    // ---------- FUNCIONES DE GUARDADO Y CARGA ----------
+    function guardarDatos() {
+      localStorage.setItem("inventario", JSON.stringify(inventario));
+      localStorage.setItem("precios", JSON.stringify(precios));
+    }
+
+    function cargarDatos() {
+      const datosInventario = localStorage.getItem("inventario");
+      const datosPrecios = localStorage.getItem("precios");
+      if (datosInventario) inventario = JSON.parse(datosInventario);
+      if (datosPrecios) precios = JSON.parse(datosPrecios);
+    }
+
+    // ---------- FUNCIONES PRINCIPALES ----------
+    function agregarProducto() {
+      const almacen = document.getElementById("almacen").value.trim();
+      const producto = document.getElementById("producto").value.trim();
+      const cantidad = parseInt(document.getElementById("cantidad").value);
+
+      if (!almacen || !producto || isNaN(cantidad) || cantidad <= 0) {
+        alert("Por favor, completa todos los campos correctamente.");
+        return;
+      }
+
+      if (!inventario[almacen]) {
+        inventario[almacen] = {};
+      }
+
+      if (!inventario[almacen][producto]) {
+        inventario[almacen][producto] = 0;
+      }
+
+      inventario[almacen][producto] += cantidad;
+      guardarDatos();
+      mostrarInventario();
+    }
+
+    function quitarCantidad(almacen, producto) {
+      const cantidad = parseInt(prompt("¿Cuánta cantidad desea quitar?"));
+      if (isNaN(cantidad) || cantidad <= 0) return;
+
+      inventario[almacen][producto] -= cantidad;
+      if (inventario[almacen][producto] <= 0) {
+        delete inventario[almacen][producto];
+      }
+      if (Object.keys(inventario[almacen]).length === 0) {
+        delete inventario[almacen];
+      }
+      guardarDatos();
+      mostrarInventario();
+    }
+
+    function eliminarProducto(almacen, producto) {
+      if (confirm(`¿Eliminar totalmente "${producto}" del almacén "${almacen}"?`)) {
+        delete inventario[almacen][producto];
+        if (Object.keys(inventario[almacen]).length === 0) {
+          delete inventario[almacen];
+        }
+        guardarDatos();
+        mostrarInventario();
+      }
+    }
+
+    function mostrarInventario() {
+      const div = document.getElementById("tablaInventario");
+      let html = "";
+
+      for (const almacen in inventario) {
+        html += `<h3>Almacén: ${almacen}</h3>`;
+        html += `<table><tr><th>Producto</th><th>Cantidad</th><th>Acciones</th></tr>`;
+        for (const producto in inventario[almacen]) {
+          html += `<tr>
+            <td>${producto}</td>
+            <td>${inventario[almacen][producto]}</td>
+            <td>
+              <button class="btn-small" onclick="quitarCantidad('${almacen}', '${producto}')">Quitar</button>
+              <button class="btn-small" onclick="eliminarProducto('${almacen}', '${producto}')">Eliminar</button>
+            </td>
+          </tr>`;
+        }
+        html += `</table>`;
+      }
+
+      div.innerHTML = html;
+    }
+
+    function mostrarBalance() {
+      const div = document.getElementById("tablaBalance");
+      const totales = {};
+
+      for (const almacen in inventario) {
+        for (const producto in inventario[almacen]) {
+          if (!totales[producto]) {
+            totales[producto] = 0;
+          }
+          totales[producto] += inventario[almacen][producto];
+        }
+      }
+
+      let html = "<table><tr><th>Producto</th><th>Total</th><th>Valor Unitario</th><th>Total en $</th></tr>";
+      let totalDinero = 0;
+
+      for (const producto in totales) {
+        const valor = precios[producto] || 0;
+        const totalProducto = totales[producto] * valor;
+        totalDinero += totalProducto;
+
+        html += `<tr>
+          <td>${producto}</td>
+          <td>${totales[producto]}</td>
+          <td>
+            <input type="number" min="0" value="${valor}" onchange="actualizarPrecio('${producto}', this.value)">
+          </td>
+          <td>$${totalProducto.toFixed(2)}</td>
+        </tr>`;
+      }
+
+      html += `<tr><th colspan="3">Total General</th><th>$${totalDinero.toFixed(2)}</th></tr>`;
+      html += "</table>";
+      div.innerHTML = html;
+    }
+
+    function actualizarPrecio(producto, valor) {
+      const precio = parseFloat(valor);
+      if (!isNaN(precio) && precio >= 0) {
+        precios[producto] = precio;
+        guardarDatos();
+        mostrarBalance();
+      }
+    }
+
+    function mostrarSeccion(seccion) {
+      document.getElementById("seccion-almacenes").classList.add("hidden");
+      document.getElementById("seccion-balance").classList.add("hidden");
+
+      document.getElementById("menu-almacenes").classList.remove("active");
+      document.getElementById("menu-balance").classList.remove("active");
+
+      if (seccion === "almacenes") {
+        document.getElementById("seccion-almacenes").classList.remove("hidden");
+        document.getElementById("menu-almacenes").classList.add("active");
+        mostrarInventario();
+      } else if (seccion === "balance") {
+        document.getElementById("seccion-balance").classList.remove("hidden");
+        document.getElementById("menu-balance").classList.add("active");
+        mostrarBalance();
+      }
+    }
+
+    // Cargar datos al iniciar
+    cargarDatos();
+    mostrarInventario();
+  </script>
+
+</body>
+</html>
